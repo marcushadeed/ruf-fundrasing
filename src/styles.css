@@ -107,3 +107,7 @@ th { cursor: pointer; user-select: none; }
 tr.cancelled td { text-decoration: line-through; color: var(--muted); }
 
 .issues { margin-top: 16px; background: #fef3c7; color: #78350f; border-radius: 8px; padding: 8px 12px; }
+
+nav.pages { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 16px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+nav.pages a { color: var(--text); text-decoration: none; }
+nav.pages a[aria-current='page'] { font-weight: bold; text-decoration: underline; }

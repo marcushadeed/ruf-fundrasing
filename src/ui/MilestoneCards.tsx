@@ -21,7 +21,7 @@ function celebratedSet(): Set<string> {
 }
 
 /** Fires confetti the first time each milestone is seen as met (per browser). */
-function useCelebrate(milestones: MilestoneStatus[], enabled: boolean, scope: string) {
+export function useCelebrate(milestones: MilestoneStatus[], enabled: boolean, scope: string) {
   useEffect(() => {
     if (!enabled) return;
     const seen = celebratedSet();
@@ -41,13 +41,7 @@ function useCelebrate(milestones: MilestoneStatus[], enabled: boolean, scope: st
   }, [milestones, enabled, scope]);
 }
 
-export function MilestoneCards(props: {
-  milestones: MilestoneStatus[];
-  /** Only celebrate real, current progress (not scrubbing or what-ifs). */
-  celebrate: boolean;
-  scope: string;
-}) {
-  useCelebrate(props.milestones, props.celebrate, props.scope);
+export function MilestoneCards(props: { milestones: MilestoneStatus[] }) {
   if (!props.milestones.length) return <p className="muted">No milestones defined. Add rows to the Milestones tab.</p>;
 
   return (
