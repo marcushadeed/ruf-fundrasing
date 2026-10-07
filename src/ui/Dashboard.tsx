@@ -1,19 +1,19 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { todayISO } from '../domain/dates';
-import { NO_WHAT_IF, snapshot, type WhatIf } from '../domain/metrics';
+import { NO_WHAT_IF, snapshot, type MilestoneStatus, type Snapshot, type WhatIf } from '../domain/metrics';
 import { buildTimeline, timelineBounds } from '../domain/timeline';
 import type { Workbook } from '../domain/types';
-import { AsOfScrubber, WhatIfPanel } from './Controls';
-import { money } from './format';
+import { ViewBar } from './Controls';
+import { money, pct } from './format';
 import { IssuesPanel } from './IssuesPanel';
 import { LedgerTables } from './LedgerTables';
-import { MilestoneCards, useCelebrate } from './MilestoneCards';
+import { MilestoneCard, MilestoneCards, useCelebrate } from './MilestoneCards';
 import { PipelineBoard } from './PipelineBoard';
 import { TimelineChart } from './TimelineChart';
-import { PAGES, usePage } from './usePage';
+import type { PageId } from './usePage';
 import { YearProgress } from './YearProgress';
 
-export function Dashboard({ workbook, scope }: { workbook: Workbook; scope: string }) {
+export function Dashboard({ workbook, page, scope }: { workbook: Workbook; page: PageId; scope: string }) {
   const today = todayISO();
   const [asOf, setAsOf] = useState(today);
   const [whatIf, setWhatIf] = useState<WhatIf>(NO_WHAT_IF);
@@ -21,8 +21,7 @@ export function Dashboard({ workbook, scope }: { workbook: Workbook; scope: stri
   const snap = useMemo(() => snapshot(workbook, asOf, whatIf), [workbook, asOf, whatIf]);
   const timeline = useMemo(() => buildTimeline(workbook, asOf, whatIf), [workbook, asOf, whatIf]);
   const minDate = useMemo(() => timelineBounds(workbook, today).start, [workbook, today]);
-  const hypothetical = whatIf.extraPledges.length > 0 || whatIf.conversionOverride !== null;
-  const page = usePage();
+  const yearKeys = workbook.years.map((y) => y.key);
 
   // Only celebrate real, current progress (not scrubbing or what-ifs), on whichever page is open.
   useCelebrate(snap.milestones, asOf === today && whatIf.extraPledges.length === 0, scope);
@@ -31,95 +30,162 @@ export function Dashboard({ workbook, scope }: { workbook: Workbook; scope: stri
     window.scrollTo(0, 0);
   }, [page]);
 
+  // The ledger ignores as-of and what-ifs, so the controls would mislead there.
+  const viewBar = page !== 'donors' && (
+    <ViewBar
+      asOf={asOf}
+      min={minDate}
+      today={today}
+      onAsOf={setAsOf}
+      whatIf={whatIf}
+      onWhatIf={setWhatIf}
+    />
+  );
+
   return (
     <main>
-      <IssuesPanel issues={workbook.issues} />
+      <div className="page">
+        <IssuesPanel issues={workbook.issues} />
+        {viewBar}
 
-      <nav className="pages">
-        {PAGES.map((p) => (
-          <a key={p.id} href={`#/${p.id}`} aria-current={p.id === page ? 'page' : undefined}>
-            {p.label}
-          </a>
-        ))}
-      </nav>
+        {page === 'overview' && (
+          <Overview workbook={workbook} snap={snap} yearKeys={yearKeys} />
+        )}
 
-      {/* The ledger ignores as-of and what-ifs, so the controls would mislead there. */}
-      {page !== 'donors' && (
-        <>
-          <section className="controls">
-            <AsOfScrubber asOf={asOf} min={minDate} today={today} onChange={setAsOf} />
-            <WhatIfPanel whatIf={whatIf} onChange={setWhatIf} today={today} />
-          </section>
+        {page === 'milestones' && (
+          <>
+            <PageHead title="Milestones" text="Each deadline, how close you are, and the weekly pace it takes to get there." />
+            <MilestoneCards milestones={snap.milestones} yearKeys={yearKeys} />
+          </>
+        )}
 
-          {(asOf !== today || hypothetical) && (
-            <p className="banner">
-              {asOf !== today && 'Viewing a past date. '}
-              {hypothetical && 'What-if scenario active: numbers include hypotheticals.'}
-            </p>
-          )}
-        </>
-      )}
+        {page === 'over-time' && (
+          <>
+            <PageHead title="Over time" text="Cumulative pledged and received, with where the current pace leads." />
+            <TimelineChart timeline={timeline} milestones={snap.milestones} asOf={asOf} today={today} yearKeys={yearKeys} />
+          </>
+        )}
 
-      {page === 'overview' && (
-        <>
-          <section className="totals">
-            <div>
-              <span className="muted">Total pledged</span>
-              <strong>{money(snap.totalPledged)}</strong>
-            </div>
-            <div>
-              <span className="muted">Total received</span>
-              <strong>{money(snap.totalReceived)}</strong>
-            </div>
-            <div>
-              <span className="muted">Likely from pipeline</span>
-              <strong>{money(snap.pipeline.weighted)}</strong>
-            </div>
-            <div>
-              <span className="muted">Goal (all years)</span>
-              <strong>{money(workbook.years.reduce((s, y) => s + y.goal, 0))}</strong>
-            </div>
-          </section>
+        {page === 'pipeline' && (
+          <>
+            <PageHead title="Pipeline" text="Who you plan to ask, where each conversation stands, and what's likely to come in." />
+            <PipelineBoard asks={workbook.asks} summary={snap.pipeline} asOf={asOf} />
+          </>
+        )}
 
-          <section>
-            <h2>Years</h2>
-            <YearProgress years={snap.years} surplus={snap.surplus} />
-          </section>
-        </>
-      )}
-
-      {page === 'milestones' && (
-        <section>
-          <h2>Milestones</h2>
-          <MilestoneCards milestones={snap.milestones} />
-        </section>
-      )}
-
-      {page === 'over-time' && (
-        <section>
-          <h2>Over time</h2>
-          <TimelineChart
-            timeline={timeline}
-            milestones={snap.milestones}
-            asOf={asOf}
-            yearKeys={workbook.years.map((y) => y.key)}
-          />
-        </section>
-      )}
-
-      {page === 'pipeline' && (
-        <section>
-          <h2>Ask pipeline</h2>
-          <PipelineBoard asks={workbook.asks} summary={snap.pipeline} asOf={asOf} />
-        </section>
-      )}
-
-      {page === 'donors' && (
-        <section>
-          <h2>Pledges, gifts & donors</h2>
-          <LedgerTables workbook={workbook} />
-        </section>
-      )}
+        {page === 'donors' && (
+          <>
+            <PageHead title="Donors" text="Every pledge and gift from the Sheet. Search or sort any column." />
+            <LedgerTables workbook={workbook} />
+          </>
+        )}
+      </div>
     </main>
   );
+}
+
+function PageHead({ title, text, children }: { title: string; text: string; children?: ReactNode }) {
+  return (
+    <div className="page-head">
+      <div>
+        <h1>{title}</h1>
+        <p>{text}</p>
+      </div>
+      {children}
+    </div>
+  );
+}
+
+function Overview(props: { workbook: Workbook; snap: Snapshot; yearKeys: string[] }) {
+  const { workbook, snap, yearKeys } = props;
+  const goal = workbook.years.reduce((s, y) => s + y.goal, 0);
+  const share = goal > 0 ? snap.totalPledged / goal : 0;
+  const next = nextMilestone(snap.milestones);
+  const yearsLabel = workbook.years.length === 1 ? 'goal' : `${workbook.years.length}-year goal`;
+
+  return (
+    <>
+      <section className="hero">
+        <p className="eyebrow">Pledged toward your {yearsLabel}</p>
+        <h1 className="display">{money(snap.totalPledged)}</h1>
+        <p className="lede">
+          of <strong>{money(goal)}</strong> · {pct(share)} of the way there.{' '}
+          <strong>{money(snap.totalReceived)}</strong> has already come in.
+        </p>
+        <div className="meter" role="img" aria-label={`${pct(share)} of the total goal pledged`}>
+          <div className="meter-fill" style={{ width: `${Math.min(100, share * 100)}%` }} />
+        </div>
+      </section>
+
+      <section className="grid-2">
+        {next ? (
+          <div className="section">
+            <div className="section-head">
+              <h2>Next milestone</h2>
+              <a href="#/milestones" className="small">
+                All milestones
+              </a>
+            </div>
+            <MilestoneCard m={next} yearKeys={yearKeys} />
+          </div>
+        ) : (
+          <div className="section">
+            <div className="section-head">
+              <h2>Milestones</h2>
+            </div>
+            <div className="card">
+              <p className="lede">
+                {snap.milestones.length ? 'Every upcoming milestone is met. 🎉' : 'No milestones yet. Add them in the Sheet.'}
+              </p>
+            </div>
+          </div>
+        )}
+
+        <div className="section">
+          <div className="section-head">
+            <h2>At a glance</h2>
+          </div>
+          <dl className="card stat-list">
+            <div>
+              <dt>Received</dt>
+              <dd>{money(snap.totalReceived)}</dd>
+            </div>
+            <div>
+              <dt>Pledged, still to come</dt>
+              <dd>{money(Math.max(0, snap.totalPledged - snap.totalReceived))}</dd>
+            </div>
+            <div>
+              <dt>
+                Likely from pipeline
+                <span className="sub">
+                  {snap.pipeline.openCount} open {snap.pipeline.openCount === 1 ? 'ask' : 'asks'} ·{' '}
+                  <a href="#/pipeline">view</a>
+                </span>
+              </dt>
+              <dd>{money(snap.pipeline.weighted)}</dd>
+            </div>
+            <div>
+              <dt>Still needed</dt>
+              <dd>{money(Math.max(0, goal - snap.totalPledged))}</dd>
+            </div>
+          </dl>
+        </div>
+      </section>
+
+      <section className="section">
+        <div className="section-head">
+          <h2>By year</h2>
+          <span className="small muted">Money fills Y1 first; any surplus rolls into Y2.</span>
+        </div>
+        <YearProgress years={snap.years} surplus={snap.surplus} yearKeys={yearKeys} />
+      </section>
+    </>
+  );
+}
+
+/** The soonest milestone that's still open. */
+function nextMilestone(milestones: MilestoneStatus[]): MilestoneStatus | undefined {
+  return milestones
+    .filter((m) => m.state !== 'met' && m.daysLeft >= 0)
+    .sort((a, b) => a.milestone.due.localeCompare(b.milestone.due))[0];
 }

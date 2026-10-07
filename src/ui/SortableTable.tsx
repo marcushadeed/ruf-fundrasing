@@ -7,6 +7,8 @@ export interface Column<T> {
   value: (row: T) => string | number;
   render?: (row: T) => ReactNode;
   numeric?: boolean;
+  /** Long free text (notes) that should wrap instead of widening the table. */
+  wrap?: boolean;
 }
 
 export function SortableTable<T>(props: {
@@ -35,22 +37,34 @@ export function SortableTable<T>(props: {
       <table>
         <thead>
           <tr>
-            {columns.map((c) => (
-              <th
-                key={c.key}
-                className={c.numeric ? 'num' : undefined}
-                onClick={() => setSort((s) => ({ key: c.key, desc: s.key === c.key ? !s.desc : !!c.numeric }))}
-              >
-                {c.label}
-                {sort.key === c.key ? (sort.desc ? ' ▼' : ' ▲') : ''}
-              </th>
-            ))}
+            {columns.map((c) => {
+              const active = sort.key === c.key;
+              return (
+                <th
+                  key={c.key}
+                  className={c.numeric ? 'num' : undefined}
+                  aria-sort={active ? (sort.desc ? 'descending' : 'ascending') : undefined}
+                >
+                  <button
+                    type="button"
+                    onClick={() => setSort((s) => ({ key: c.key, desc: s.key === c.key ? !s.desc : !!c.numeric }))}
+                  >
+                    {c.label}
+                    {active && (
+                      <span className="sort-icon" aria-hidden>
+                        {sort.desc ? '↓' : '↑'}
+                      </span>
+                    )}
+                  </button>
+                </th>
+              );
+            })}
           </tr>
         </thead>
         <tbody>
           {sorted.length === 0 && (
             <tr>
-              <td colSpan={columns.length} className="muted">
+              <td colSpan={columns.length} className="empty">
                 {props.empty ?? 'Nothing here yet.'}
               </td>
             </tr>
@@ -58,7 +72,7 @@ export function SortableTable<T>(props: {
           {sorted.map((r, i) => (
             <tr key={i} className={props.rowClass?.(r)}>
               {columns.map((c) => (
-                <td key={c.key} className={c.numeric ? 'num' : undefined}>
+                <td key={c.key} className={c.numeric ? 'num' : c.wrap ? 'notes-cell' : undefined}>
                   {c.render ? c.render(r) : c.value(r)}
                 </td>
               ))}

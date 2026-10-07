@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { donorRows, pledgeRows, type DonorRow, type PledgeRow } from '../domain/ledger';
 import type { Gift, Workbook } from '../domain/types';
 import { fmtDate, money } from './format';
+import { SearchIcon } from './icons';
 import { matches, SortableTable, type Column } from './SortableTable';
 
 type Tab = 'pledges' | 'gifts' | 'donors';
@@ -39,7 +40,7 @@ export function LedgerTables({ workbook }: { workbook: Workbook }) {
     ),
     { key: 'received', label: 'Received', value: (r) => r.received, render: (r) => money(r.received), numeric: true },
     { key: 'status', label: 'Status', value: (r) => r.pledge.status },
-    { key: 'notes', label: 'Notes', value: (r) => r.pledge.notes },
+    { key: 'notes', label: 'Notes', value: (r) => r.pledge.notes, wrap: true },
   ];
 
   const giftCols: Column<Gift>[] = [
@@ -47,7 +48,7 @@ export function LedgerTables({ workbook }: { workbook: Workbook }) {
     { key: 'donor', label: 'Donor', value: (g) => g.donor },
     { key: 'amount', label: 'Amount', value: (g) => g.amount, render: (g) => money(g.amount), numeric: true },
     { key: 'pledge', label: 'Pledge', value: (g) => g.pledgeId ?? '(standalone)' },
-    { key: 'notes', label: 'Notes', value: (g) => g.notes },
+    { key: 'notes', label: 'Notes', value: (g) => g.notes, wrap: true },
   ];
 
   const donorCols: Column<DonorRow>[] = [
@@ -58,17 +59,24 @@ export function LedgerTables({ workbook }: { workbook: Workbook }) {
     { key: 'gifts', label: '# gifts', value: (d) => d.giftCount, numeric: true },
   ];
 
+  const counts: Record<Tab, number> = { pledges: pledges.length, gifts: workbook.gifts.length, donors: donors.length };
+
   return (
-    <div>
-      <div className="row spread">
-        <div className="toggle">
+    <div className="section">
+      <div className="toolbar">
+        <div className="segmented" role="group" aria-label="Table">
           {(['pledges', 'gifts', 'donors'] as Tab[]).map((t) => (
             <button key={t} type="button" aria-pressed={tab === t} onClick={() => setTab(t)}>
               {t[0].toUpperCase() + t.slice(1)}
+              <span className="count">{counts[t]}</span>
             </button>
           ))}
         </div>
-        <input type="search" placeholder="Search…" value={query} onChange={(e) => setQuery(e.target.value)} />
+        <label className="search">
+          <SearchIcon />
+          <span className="sr-only">Search</span>
+          <input type="search" placeholder="Search names, notes…" value={query} onChange={(e) => setQuery(e.target.value)} />
+        </label>
       </div>
       {tab === 'pledges' && (
         <>
@@ -79,7 +87,7 @@ export function LedgerTables({ workbook }: { workbook: Workbook }) {
             rowClass={(r) => (r.pledge.status === 'cancelled' ? 'cancelled' : undefined)}
             empty="No pledges yet."
           />
-          <p className="muted small">
+          <p className="table-note">
             "Period" columns show when each dollar arrives. Surplus beyond a year's goal rolls into the next year as a
             pool, so it isn't attributed to individual donors.
           </p>

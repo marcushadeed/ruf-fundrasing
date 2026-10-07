@@ -21,18 +21,32 @@ export function PipelineBoard(props: { asks: Ask[]; summary: PipelineSummary; as
     { key: 'next', label: 'Next step', value: (a) => a.nextStep },
     { key: 'nextDate', label: 'When', value: (a) => a.nextStepDate ?? '9999', render: (a) => fmtDate(a.nextStepDate) },
     { key: 'last', label: 'Last contact', value: (a) => a.lastContact ?? '', render: (a) => fmtDate(a.lastContact) },
-    { key: 'notes', label: 'Notes', value: (a) => a.notes },
+    { key: 'notes', label: 'Notes', value: (a) => a.notes, wrap: true },
   ];
 
   return (
-    <div>
-      <div className="row spread">
-        <p>
-          {summary.openCount} open asks totalling {money(summary.openTotal)} →{' '}
-          <strong>{money(summary.weighted)} likely</strong>
-          {overdue.length > 0 && <span className="warn"> · {overdue.length} overdue next step(s)</span>}
-        </p>
-        <div className="toggle">
+    <div className="section">
+      <div className="stat-row">
+        <div>
+          <span className="label">Open asks</span>
+          <strong>{summary.openCount}</strong>
+        </div>
+        <div>
+          <span className="label">Total asked</span>
+          <strong>{money(summary.openTotal)}</strong>
+        </div>
+        <div>
+          <span className="label">Likely, weighted by stage</span>
+          <strong>{money(summary.weighted)}</strong>
+        </div>
+        <div className={overdue.length ? 'warn' : undefined}>
+          <span className="label">Overdue next steps</span>
+          <strong>{overdue.length}</strong>
+        </div>
+      </div>
+
+      <div className="toolbar">
+        <div className="segmented" role="group" aria-label="View">
           <button type="button" aria-pressed={view === 'board'} onClick={() => setView('board')}>
             Board
           </button>
@@ -41,37 +55,50 @@ export function PipelineBoard(props: { asks: Ask[]; summary: PipelineSummary; as
           </button>
         </div>
       </div>
+
       {view === 'board' ? (
         <div className="board">
-          {summary.byStage.map((s) => (
-            <section key={s.stage} className={`column ${s.open ? '' : 'closed'}`}>
-              <header>
-                <strong>{s.stage}</strong>
-                <span className="muted small">
-                  {s.count} · {money(s.total)}
-                  {s.open && ` · ${pct(s.probability)} → ${money(s.weighted)}`}
-                </span>
-              </header>
-              {asks
-                .filter((a) => a.stage === s.stage)
-                .sort((a, b) => (a.nextStepDate ?? '9999').localeCompare(b.nextStepDate ?? '9999'))
-                .map((a) => (
-                  <div key={a.row} className={`ask ${isOverdue(a, asOf, open) ? 'overdue' : ''}`}>
-                    <div className="row spread">
-                      <strong>{a.name}</strong>
-                      <span>{money(a.askAmount)}</span>
-                    </div>
-                    {a.nextStep && (
-                      <div className="small">
-                        {a.nextStep}
-                        {a.nextStepDate && ` · ${fmtDate(a.nextStepDate)}`}
+          {summary.byStage.map((s) => {
+            const inStage = asks
+              .filter((a) => a.stage === s.stage)
+              .sort((a, b) => (a.nextStepDate ?? '9999').localeCompare(b.nextStepDate ?? '9999'));
+            return (
+              <section key={s.stage} className={`column ${s.open ? '' : 'closed'}`}>
+                <header>
+                  <strong>{s.stage}</strong>
+                  <span className="small muted">
+                    {s.count} · {money(s.total)}
+                    {s.open && ` · ${pct(s.probability)} odds`}
+                  </span>
+                </header>
+                {inStage.length === 0 && <p className="column-empty">Nobody here yet</p>}
+                {inStage.map((a) => {
+                  const late = isOverdue(a, asOf, open);
+                  return (
+                    <div key={a.row} className={`ask ${late ? 'overdue' : ''}`}>
+                      <div className="ask-head">
+                        <strong>{a.name}</strong>
+                        <span>{money(a.askAmount)}</span>
                       </div>
-                    )}
-                    {a.notes && <div className="small muted">{a.notes}</div>}
-                  </div>
-                ))}
-            </section>
-          ))}
+                      {a.nextStep && (
+                        <div className="ask-step">
+                          {a.nextStep}
+                          {a.nextStepDate && (
+                            <span className={late ? 'overdue-label' : 'muted'}>
+                              {' · '}
+                              {late ? 'overdue since ' : ''}
+                              {fmtDate(a.nextStepDate)}
+                            </span>
+                          )}
+                        </div>
+                      )}
+                      {a.notes && <div className="small muted">{a.notes}</div>}
+                    </div>
+                  );
+                })}
+              </section>
+            );
+          })}
         </div>
       ) : (
         <SortableTable

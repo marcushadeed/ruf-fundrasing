@@ -29,13 +29,14 @@ export function fmtDays(days: number): string {
   return `${Math.round(days / 7)} weeks left`;
 }
 
-const PALETTE = ['#2563eb', '#7c3aed', '#db2777', '#ea580c'];
-
-/** Stable color per chart metric. */
+/**
+ * Stable color per chart metric, as a CSS variable so it follows the theme. Years use a fixed order
+ * (Y1 orange, Y2 brass); there are only two validated slots, so a third year falls back to neutral gray.
+ */
 export function metricColor(metric: string, years: string[]): string {
-  if (metric === 'received') return '#16a34a';
+  if (metric === 'received') return 'var(--series-received)';
   const i = years.findIndex((y) => metric.startsWith(`${y.toLowerCase()}_`));
-  return PALETTE[(i < 0 ? 0 : i) % PALETTE.length];
+  return `var(--series-y${(i < 0 ? 0 : i) + 1}, var(--text-3))`;
 }
 
 export function metricLabel(metric: string): string {

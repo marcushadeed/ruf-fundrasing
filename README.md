@@ -50,7 +50,7 @@ Everything that's "subject to change" lives in the Sheet, not the code:
 src/domain/   pure logic + tests: parse.ts, schedule.ts, allocate.ts, metrics.ts, timeline.ts, ledger.ts
 src/data/     googleSheets.ts (Sheets API), sample.ts (demo data), source.ts (config)
 src/auth/     google.ts (Google Identity Services, read-only token)
-src/ui/       React components (functional styling only, design TBD)
+src/ui/       React components; styles.css holds the design tokens (light + dark)
 scripts/      make-template.ts (generates the Sheet template .xlsx)
 ```
 
